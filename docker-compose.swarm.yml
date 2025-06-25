@@ -1,0 +1,265 @@
+version: '3.8'
+
+services:
+  # Auto-scaling API service
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: scalable_backend_api:latest
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      labels:
+        - "com.docker.stack.namespace=scalable-backend"
+        - "com.docker.compose.project=scalable-backend-production"
+        - "project=scalable-backend-production"
+        - "service.type=api"
+        - "service.group=backend"
+        - "environment=production"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3000}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-scalable_backend}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres_password}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - backend-network
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL with potential scaling
+  postgres:
+    image: postgres:15-alpine
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+      labels:
+        - "com.docker.stack.namespace=scalable-backend"
+        - "com.docker.compose.project=scalable-backend-production"
+        - "project=scalable-backend-production"
+        - "service.type=database"
+        - "service.group=backend"
+        - "environment=production"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-scalable_backend}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres_password}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    command: >
+      postgres -c max_connections=10000
+               -c shared_buffers=512MB
+               -c effective_cache_size=2GB
+               -c maintenance_work_mem=128MB
+               -c checkpoint_completion_target=0.9
+               -c wal_buffers=32MB
+               -c default_statistics_target=100
+               -c max_wal_size=2GB
+               -c min_wal_size=1GB
+               -c random_page_cost=1.1
+               -c effective_io_concurrency=200
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis with clustering capability
+  redis:
+    image: redis:7-alpine
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+      labels:
+        - "com.docker.stack.namespace=scalable-backend"
+        - "com.docker.compose.project=scalable-backend-production"
+        - "project=scalable-backend-production"
+        - "service.type=cache"
+        - "service.group=backend"
+        - "environment=production"
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 200mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Dynamic Load Balancer with service discovery
+  nginx:
+    image: nginx:1.25-alpine
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "com.docker.stack.namespace=scalable-backend"
+        - "com.docker.compose.project=scalable-backend-production"
+        - "project=scalable-backend-production"
+        - "service.type=load-balancer"
+        - "service.group=frontend"
+        - "environment=production"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.swarm.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - api
+    networks:
+      - backend-network
+
+  # Auto-scaling monitor and controller
+  autoscaler:
+    build:
+      context: ./autoscaler
+      dockerfile: Dockerfile
+    image: autoscaler:latest
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+      labels:
+        - "com.docker.stack.namespace=scalable-backend"
+        - "com.docker.compose.project=scalable-backend-production"
+        - "project=scalable-backend-production"
+        - "service.type=autoscaler"
+        - "service.group=monitoring"
+        - "environment=production"
+    environment:
+      - DOCKER_API_VERSION=1.41
+      - SCALE_UP_THRESHOLD=${SCALE_UP_THRESHOLD:-80}
+      - SCALE_DOWN_THRESHOLD=${SCALE_DOWN_THRESHOLD:-30}
+      - MIN_REPLICAS=${MIN_REPLICAS:-2}
+      - MAX_REPLICAS=${MAX_REPLICAS:-10}
+      - CHECK_INTERVAL=${CHECK_INTERVAL:-30}
+      - COOLDOWN_PERIOD=${COOLDOWN_PERIOD:-120}
+      - CPU_SCALE_UP_THRESHOLD=${CPU_SCALE_UP_THRESHOLD:-70}
+      - MEMORY_SCALE_UP_THRESHOLD=${MEMORY_SCALE_UP_THRESHOLD:-80}
+      - SCALING_ALGORITHM=${SCALING_ALGORITHM:-linear}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - backend-network
+    depends_on:
+      - api
+    ports:
+      - "8080:8080"  # Health check endpoint
+      - "8090:8090"  # Prometheus metrics
+
+  # Metrics collector
+  metrics:
+    build:
+      context: ./metrics
+      dockerfile: Dockerfile
+    image: metrics_collector:latest
+    deploy:
+      replicas: 1
+      labels:
+        - "com.docker.stack.namespace=scalable-backend"
+        - "com.docker.compose.project=scalable-backend-production"
+        - "project=scalable-backend-production"
+        - "service.type=metrics"
+        - "service.group=monitoring"
+        - "environment=production"
+    environment:
+      - API_ENDPOINTS=http://api:3000
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - COLLECTION_INTERVAL=15
+    networks:
+      - backend-network
+    depends_on:
+      - api
+      - postgres
+      - redis
+    ports:
+      - "8091:8090"  # Metrics endpoint (avoiding conflict with autoscaler)
+      - "9090:9090"  # Health endpoint
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+    labels:
+      - "com.docker.compose.project=scalable-backend-production"
+      - "project=scalable-backend-production"
+      - "environment=production"
+  redis_data:
+    driver: local
+    labels:
+      - "com.docker.compose.project=scalable-backend-production"
+      - "project=scalable-backend-production"
+      - "environment=production"
+
+# Overlay network for swarm
+networks:
+  backend-network:
+    driver: overlay
+    attachable: true
+    labels:
+      - "com.docker.compose.project=scalable-backend-production"
+      - "project=scalable-backend-production"
+      - "environment=production" 

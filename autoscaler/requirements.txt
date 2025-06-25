@@ -1,0 +1,6 @@
+docker==6.1.3
+requests==2.31.0
+psutil==5.9.5
+prometheus_client==0.17.1
+schedule==1.2.0
+pyyaml==6.0.1 

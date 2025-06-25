@@ -1,0 +1,200 @@
+version: '3.8'
+
+# Development version - Easier to manage in Docker Desktop
+# Use this for development and testing, use docker-compose.swarm.yml for production
+
+services:
+  # API service (single instance for development)
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: autoscaling_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=${PORT:-3000}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-scalable_backend}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres_password}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - autoscaling-network
+    volumes:
+      - ./logs:/app/logs
+    labels:
+      - "project=auto-scaling-backend"
+      - "service.type=api"
+      - "service.group=backend"
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: autoscaling_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-scalable_backend}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres_password}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    command: >
+      postgres -c max_connections=1000
+               -c shared_buffers=256MB
+               -c effective_cache_size=1GB
+               -c maintenance_work_mem=64MB
+               -c checkpoint_completion_target=0.9
+               -c wal_buffers=16MB
+               -c default_statistics_target=100
+               -c max_wal_size=1GB
+               -c min_wal_size=512MB
+               -c random_page_cost=1.1
+               -c effective_io_concurrency=200
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - autoscaling-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "project=auto-scaling-backend"
+      - "service.type=database"
+      - "service.group=backend"
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: autoscaling_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 100mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - autoscaling-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    labels:
+      - "project=auto-scaling-backend"
+      - "service.type=cache"
+      - "service.group=backend"
+
+  # Nginx Load Balancer
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: autoscaling_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - api
+    networks:
+      - autoscaling-network
+    labels:
+      - "project=auto-scaling-backend"
+      - "service.type=load-balancer"
+      - "service.group=frontend"
+
+  # Auto-scaling Monitor (Development mode - monitoring only)
+  autoscaler:
+    build:
+      context: ./autoscaler
+      dockerfile: Dockerfile
+    container_name: autoscaling_monitor
+    restart: unless-stopped
+    environment:
+      - DOCKER_API_VERSION=1.41
+      - SCALE_UP_THRESHOLD=${SCALE_UP_THRESHOLD:-80}
+      - SCALE_DOWN_THRESHOLD=${SCALE_DOWN_THRESHOLD:-30}
+      - MIN_REPLICAS=${MIN_REPLICAS:-1}
+      - MAX_REPLICAS=${MAX_REPLICAS:-3}
+      - CHECK_INTERVAL=${CHECK_INTERVAL:-30}
+      - COOLDOWN_PERIOD=${COOLDOWN_PERIOD:-120}
+      - CPU_SCALE_UP_THRESHOLD=${CPU_SCALE_UP_THRESHOLD:-70}
+      - MEMORY_SCALE_UP_THRESHOLD=${MEMORY_SCALE_UP_THRESHOLD:-80}
+      - SCALING_ALGORITHM=${SCALING_ALGORITHM:-linear}
+      - DEV_MODE=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - autoscaling-network
+    depends_on:
+      - api
+    ports:
+      - "8080:8080"  # Health check endpoint
+      - "8090:8090"  # Prometheus metrics
+    labels:
+      - "project=auto-scaling-backend"
+      - "service.type=autoscaler"
+      - "service.group=monitoring"
+
+  # Metrics Collector
+  metrics:
+    build:
+      context: ./metrics
+      dockerfile: Dockerfile
+    container_name: autoscaling_metrics
+    restart: unless-stopped
+    environment:
+      - API_ENDPOINTS=http://api:3000
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - COLLECTION_INTERVAL=15
+    networks:
+      - autoscaling-network
+    depends_on:
+      - api
+      - postgres
+      - redis
+    ports:
+      - "8091:8090"  # Metrics endpoint (avoiding conflict with autoscaler)
+      - "9090:9090"  # Health endpoint
+    labels:
+      - "project=auto-scaling-backend"
+      - "service.type=metrics"
+      - "service.group=monitoring"
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+    labels:
+      - "project=auto-scaling-backend"
+  redis_data:
+    driver: local
+    labels:
+      - "project=auto-scaling-backend"
+
+# Custom network
+networks:
+  autoscaling-network:
+    driver: bridge
+    labels:
+      - "project=auto-scaling-backend"
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16 
