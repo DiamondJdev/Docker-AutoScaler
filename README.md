@@ -2,7 +2,7 @@
 
 A comprehensive example of a scalable backend architecture using Docker containers for learning purposes. This project demonstrates microservices architecture, containerization, load balancing, and caching strategies.
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -18,7 +18,7 @@ A comprehensive example of a scalable backend architecture using Docker containe
                                                 └─────────────────┘
 ```
 
-## 🚀 Features
+## Features
 
 - **RESTful API** with user authentication and task management
 - **PostgreSQL** database with automatic migrations
@@ -30,7 +30,7 @@ A comprehensive example of a scalable backend architecture using Docker containe
 - **Docker Compose** orchestration
 - **Data persistence** with Docker volumes
 
-## 📋 Prerequisites
+## Prerequisites
 
 - **Docker Desktop** or **Docker Engine** with Docker Compose
 - **Minimum System Requirements:**
@@ -40,18 +40,18 @@ A comprehensive example of a scalable backend architecture using Docker containe
 - **Available Ports:** 80, 3000, 5432, 6379, 8080, 8090
 - **Operating System:** Windows 10/11, macOS, or Linux
 
-## 🚀 Getting Started
+## Getting Started
 
-### 🎯 **Choose Your Deployment Mode**
+### **Choose Your Deployment Mode**
 
 This project offers two deployment modes:
 
-1. **🔧 Development Mode** - Single instances, easy Docker Desktop management
-2. **⚡ Production Auto-scaling** - Docker Swarm with intelligent auto-scaling
+1. ** Development Mode** - Single instances, easy Docker Desktop management
+2. ** Production Auto-scaling** - Docker Swarm with intelligent auto-scaling
 
 ---
 
-### 🔧 **Option 1: Development Mode (Recommended for Learning)**
+### **Option 1: Development Mode (Recommended for Learning)**
 
 Perfect for learning, testing, and development work.
 
@@ -91,7 +91,7 @@ curl http://localhost/api/health
 
 ---
 
-### ⚡ **Option 2: Production Auto-scaling Mode**
+### **Option 2: Production Auto-scaling Mode**
 
 Experience real auto-scaling with Docker Swarm orchestration.
 
@@ -135,7 +135,7 @@ docker service logs -f scalable-backend-production_autoscaler
 
 ---
 
-### 🧪 **Quick Test Commands**
+### **Quick Test Commands**
 
 After deployment, test your setup:
 
@@ -172,7 +172,7 @@ Invoke-RestMethod -Uri "http://localhost/api/tasks" -Method POST -Headers @{"Con
 
 ---
 
-### 🔍 **Verify Everything is Working**
+### **Verify Everything is Working**
 
 #### **Health Checks:**
 ```powershell
@@ -208,7 +208,7 @@ docker-compose exec postgres psql -U postgres -d scalable_backend
 
 ---
 
-### 🔧 **Development Workflow**
+### **Development Workflow**
 
 #### **View Logs:**
 ```powershell
@@ -239,27 +239,27 @@ docker stack rm scalable-backend-production
 
 ---
 
-### 📚 **Next Steps**
+### **Next Steps**
 
-1. **📖 Read the Documentation:**
+1. ** Read the Documentation:**
    - `AUTOSCALING_GUIDE.md` - Comprehensive auto-scaling guide
    - `testing/TESTING_GUIDE.md` - API testing guide
    - `testing/STRESS_TEST_README.md` - Load testing guide
 
-2. **🧪 Try Load Testing:**
+2. ** Try Load Testing:**
    ```powershell
    .\testing\stress-test-simple.ps1 -MaxConcurrentUsers 25 -TestDurationMinutes 1
    ```
 
-3. **🔍 Explore the API:**
+3. ** Explore the API:**
    - Open http://localhost/ in your browser
    - Use the API endpoints listed below
 
-4. **🚀 Scale and Monitor:**
+4. ** Scale and Monitor:**
    - Watch containers scale with load
    - Monitor resource usage with `docker stats`
 
-5. **🖥️ Docker Desktop Management:**
+5. ** Docker Desktop Management:**
    - **Development Mode**: Look for "auto-scaling-backend" project group
    - **Production Mode**: Look for "scalable-backend-production" project group
    - Use project filters to view only your containers
@@ -267,7 +267,7 @@ docker stack rm scalable-backend-production
 
 ---
 
-## 📊 API Endpoints
+## API Endpoints
 
 ### Authentication
 - `POST /api/users/register` - Register new user
@@ -289,7 +289,7 @@ docker stack rm scalable-backend-production
 - `GET /api/health/ready` - Kubernetes readiness probe
 - `GET /api/health/live` - Kubernetes liveness probe
 
-## 🧪 Testing the API
+## Testing the API
 
 ### Register a new user:
 ```bash
@@ -324,7 +324,7 @@ curl -X POST http://localhost/api/tasks \
   }'
 ```
 
-## 🔧 Docker Commands
+## Docker Commands
 
 ### Development workflow:
 ```bash
@@ -340,7 +340,7 @@ docker-compose restart api
 # Stop all services
 docker-compose down
 
-# Stop and remove volumes (⚠️ deletes data)
+# Stop and remove volumes (deletes data)
 docker-compose down -v
 
 # Rebuild and start
@@ -358,7 +358,7 @@ docker-compose exec postgres psql -U postgres -d scalable_backend
 docker-compose exec redis redis-cli
 ```
 
-## 📊 Monitoring & Logs
+## Monitoring & Logs
 
 ### View service logs:
 ```bash
@@ -382,7 +382,7 @@ docker-compose ps
 docker stats
 ```
 
-## 🗄️ Database
+## Database
 
 ### Sample users (for testing):
 - Email: `demo@example.com`, Password: `demo123`
@@ -405,7 +405,7 @@ SELECT * FROM task_stats;
 SELECT * FROM tasks ORDER BY created_at DESC LIMIT 5;
 ```
 
-## 🔐 Security Features
+## Security Features
 
 - **JWT Authentication** with configurable secret
 - **Password Hashing** using bcrypt
@@ -414,7 +414,7 @@ SELECT * FROM tasks ORDER BY created_at DESC LIMIT 5;
 - **Input Validation** using Joi
 - **Non-root Container** execution
 
-## 🎯 Learning Objectives
+## Learning Objectives
 
 This project teaches:
 
@@ -441,7 +441,7 @@ This project teaches:
    - Monitoring & logging
    - Security best practices
 
-## 🚀 Scaling Strategies
+## Scaling Strategies
 
 ### Horizontal Scaling:
 ```bash
@@ -458,7 +458,7 @@ docker-compose -f docker-compose.yml -f docker-compose.scale.yml up -d
 .\testing\stress-test-simple.ps1 -MaxConcurrentUsers 25 -TestDurationMinutes 2
 ```
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common issues:
 
@@ -491,11 +491,11 @@ docker-compose -f docker-compose.yml -f docker-compose.scale.yml up -d
    docker-compose up -d
    ```
 
-## 🛑 Stopping Auto-scaling Services
+## Stopping Auto-scaling Services
 
 If autoscaler is active, **Docker Swarm will automatically recreate containers** to maintain the desired replica count. Simply deleting individual containers won't work because Swarm will immediately recreate them. Here's how to properly stop the autoscaler:
 
-### 🛑 **Stop Docker Swarm Stack (Recommended)**
+### **Stop Docker Swarm Stack (Recommended)**
 
 If you deployed using `deploy-autoscaling.ps1`, you're running Docker Swarm mode:
 
@@ -510,7 +510,7 @@ This will:
 - Remove the stack network
 - **Keep your data volumes intact**
 
-### 🔍 **Check What's Running**
+### **Check What's Running**
 
 If that doesn't work, let's see what deployment method you used:
 
@@ -525,7 +525,7 @@ docker service ls
 docker-compose ps
 ```
 
-### 🎯 **Stop Based on Deployment Method**
+### **Stop Based on Deployment Method**
 
 #### Option 1: If Using Docker Swarm (deploy-autoscaling.ps1)
 ```powershell
@@ -557,7 +557,7 @@ docker rm $(docker ps -aq)
 docker swarm leave --force
 ```
 
-### 🚨 **Emergency Stop for Runaway Autoscaler**
+### **Emergency Stop for Runaway Autoscaler**
 
 If the autoscaler is creating too many containers:
 
@@ -572,7 +572,7 @@ docker service scale scalable-backend-production_api=1
 docker stack rm scalable-backend-production
 ```
 
-### 🔧 **Check for Remaining Processes**
+### **Check for Remaining Processes**
 
 After stopping, verify everything is clean:
 
@@ -590,7 +590,7 @@ docker stack ls
 docker info | findstr "Swarm"
 ```
 
-### 📊 **Monitor Resource Usage**
+### **Monitor Resource Usage**
 
 While stopping, monitor your system:
 
@@ -602,7 +602,7 @@ docker stats
 Get-Process | Where-Object {$_.ProcessName -like "*docker*"}
 ```
 
-### 🛠️ **Prevent Future Issues**
+### **Prevent Future Issues**
 
 To avoid runaway scaling in the future:
 
@@ -628,7 +628,7 @@ COOLDOWN_PERIOD=300
 docker stats
 ```
 
-### 🚀 **Clean Restart**
+### **Clean Restart**
 
 If you want to start fresh:
 
@@ -647,7 +647,7 @@ docker image prune -f
 .\deploy-dev.ps1 -Build
 ```
 
-### 🎯 **Quick Commands Summary**
+### **Quick Commands Summary**
 
 ```powershell
 # STOP EVERYTHING NOW:
@@ -663,7 +663,7 @@ docker system prune -af --volumes
 
 The key is using `docker stack rm scalable-backend-production` instead of trying to delete individual containers. Docker Swarm will keep recreating them until you remove the entire stack service definition.
 
-## 📚 Advanced Configuration
+## Advanced Configuration
 
 ### Environment Variables:
 Copy `env.example` to `.env` and customize:
